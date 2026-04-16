@@ -79,14 +79,14 @@ export default function StandingsPage() {
                         key={standing.team.id}
                         className={cn(
                           'flex items-center justify-between rounded-lg p-3',
-                          index === 0 ? 'bg-[var(--live)]/10' : 'bg-muted/50'
+                          index < 2 ? 'bg-[var(--live)]/10' : 'bg-muted/50'
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <div
                             className={cn(
                               'flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold',
-                              index === 0
+                              index < 2
                                 ? 'bg-[var(--live)] text-[var(--live-foreground)]'
                                 : 'bg-muted text-muted-foreground'
                             )}
@@ -133,14 +133,14 @@ export default function StandingsPage() {
                             key={standing.team.id}
                             className={cn(
                               'border-b last:border-0',
-                              index === 0 && 'bg-[var(--live)]/5'
+                              index < 2 && 'bg-[var(--live)]/5'
                             )}
                           >
                             <td className="p-3">
                               <div
                                 className={cn(
                                   'flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold',
-                                  index === 0
+                                  index < 2
                                     ? 'bg-[var(--live)] text-[var(--live-foreground)]'
                                     : 'bg-muted text-muted-foreground'
                                 )}
