@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Header } from '@/components/header'
 import { MatchCard } from '@/components/match-card'
 import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
-import { getMatches, getTeams, getGroups } from '@/lib/store'
+import { fetchMatches, fetchTeams, fetchGroups } from '@/lib/supabase-api'
+import type { Match, Team, Group } from '@/lib/types'
 import { Calendar, Filter } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -15,11 +16,23 @@ export default function MatchesPage() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [groupFilter, setGroupFilter] = useState<string>('all')
 
-  const matches = getMatches()
-  const teams = getTeams()
-  const groups = getGroups()
+  const [matches, setMatches] = useState<Match[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([fetchMatches(), fetchTeams(), fetchGroups()]).then(([m, t, g]) => {
+      setMatches(m)
+      setTeams(t)
+      setGroups(g)
+      setLoading(false)
+    })
+  }, [])
 
   const getTeamById = (id: string) => teams.find((t) => t.id === id)
+
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>
 
   // Apply filters
   let filteredMatches = matches
@@ -115,7 +128,7 @@ export default function MatchesPage() {
                 className="cursor-pointer whitespace-nowrap"
                 onClick={() => setGroupFilter(group.id)}
               >
-                Group {group.id}
+                {group.id === 'K' ? 'Knockout Stages' : `Group ${group.id}`}
               </Badge>
             ))}
           </div>

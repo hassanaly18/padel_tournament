@@ -33,26 +33,38 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  getTeams,
-  getMatches,
+  fetchTeams,
+  fetchMatches,
   addMatch,
   updateMatch,
   deleteMatch,
-} from '@/lib/store'
+} from '@/lib/supabase-api'
+import { useEffect } from 'react'
 import { Plus, Pencil, Trash2, Calendar, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { EmptyState } from '@/components/empty-state'
-import type { Match } from '@/lib/types'
+import type { Match, Team } from '@/lib/types'
 
 export default function AdminMatchesPage() {
-  const [matches, setMatches] = useState(getMatches())
-  const teams = getTeams()
+  const [matches, setMatches] = useState<Match[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    Promise.all([fetchMatches(), fetchTeams()]).then(([m, t]) => {
+      setMatches(m)
+      setTeams(t)
+      setLoading(false)
+    })
+  }, [])
 
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [editingMatch, setEditingMatch] = useState<Match | null>(null)
+  const [isGeneratingKnockouts, setIsGeneratingKnockouts] = useState(false)
 
   // Form state
   const [team1Id, setTeam1Id] = useState('')
@@ -68,7 +80,20 @@ export default function AdminMatchesPage() {
   const [team1Search, setTeam1Search] = useState('')
   const [team2Search, setTeam2Search] = useState('')
 
-  const refreshMatches = () => setMatches(getMatches())
+  const refreshMatches = async () => setMatches(await fetchMatches())
+
+  const handleGenerateKnockouts = async () => {
+    setIsGeneratingKnockouts(true)
+    const { generateKnockoutBracket } = await import('@/lib/supabase-api')
+    const success = await generateKnockoutBracket()
+    if (success) {
+      toast({ title: 'Success', description: 'Knockout bracket generated!' })
+      await refreshMatches()
+    } else {
+      toast({ title: 'Error', description: 'Failed to generate knockouts.', variant: 'destructive' })
+    }
+    setIsGeneratingKnockouts(false)
+  }
 
   const resetForm = () => {
     setTeam1Id('')
@@ -97,7 +122,7 @@ export default function AdminMatchesPage() {
     )
   }, [teams, team1Id, team2Search])
 
-  const handleAddMatch = () => {
+  const handleAddMatch = async () => {
     if (!team1Id || !team2Id) {
       toast({
         title: 'Error',
@@ -107,7 +132,8 @@ export default function AdminMatchesPage() {
       return
     }
 
-    const result = addMatch({
+    setIsSubmitting(true)
+    const result = await addMatch({
       team1Id,
       team2Id,
       court,
@@ -122,43 +148,47 @@ export default function AdminMatchesPage() {
         description: result.error,
         variant: 'destructive',
       })
+      setIsSubmitting(false)
       return
     }
 
-    refreshMatches()
+    await refreshMatches()
     resetForm()
     setIsAddOpen(false)
+    setIsSubmitting(false)
     toast({
       title: 'Match created',
       description: 'New match has been scheduled.',
     })
   }
 
-  const handleUpdateMatch = () => {
+  const handleUpdateMatch = async () => {
     if (!editingMatch) return
 
-    updateMatch(editingMatch.id, {
+    setIsSubmitting(true)
+    await updateMatch(editingMatch.id, {
       court,
       status,
       score1: score1 ? parseInt(score1) : null,
       score2: score2 ? parseInt(score2) : null,
     })
 
-    refreshMatches()
+    await refreshMatches()
     setEditingMatch(null)
     resetForm()
+    setIsSubmitting(false)
     toast({
       title: 'Match updated',
       description: 'Match details have been saved.',
     })
   }
 
-  const handleDeleteMatch = (match: Match) => {
+  const handleDeleteMatch = async (match: Match) => {
     const team1 = teams.find((t) => t.id === match.team1Id)
     const team2 = teams.find((t) => t.id === match.team2Id)
     if (confirm(`Delete match between ${team1?.name} and ${team2?.name}?`)) {
-      deleteMatch(match.id)
-      refreshMatches()
+      await deleteMatch(match.id)
+      await refreshMatches()
       toast({
         title: 'Match deleted',
         description: 'The match has been removed.',
@@ -193,6 +223,8 @@ export default function AdminMatchesPage() {
     return order[a.status] - order[b.status]
   })
 
+  if (loading) return <div>Loading...</div>
+
   return (
     <div className="space-y-6">
       <Toaster />
@@ -205,13 +237,22 @@ export default function AdminMatchesPage() {
           </p>
         </div>
 
-        <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Match
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="secondary" 
+            onClick={handleGenerateKnockouts} 
+            disabled={isGeneratingKnockouts}
+          >
+            {isGeneratingKnockouts ? 'Generating...' : 'Generate Knockout Bracket'}
+          </Button>
+
+          <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Match
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Match</DialogTitle>
@@ -394,12 +435,13 @@ export default function AdminMatchesPage() {
                 </div>
               )}
 
-              <Button onClick={handleAddMatch} className="w-full">
+              <Button onClick={handleAddMatch} className="w-full" disabled={isSubmitting}>
                 Create Match
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Matches List */}
@@ -561,7 +603,7 @@ export default function AdminMatchesPage() {
               </div>
             </div>
 
-            <Button onClick={handleUpdateMatch} className="w-full">
+            <Button onClick={handleUpdateMatch} className="w-full" disabled={isSubmitting}>
               Save Changes
             </Button>
           </div>

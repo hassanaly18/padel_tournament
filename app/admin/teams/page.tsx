@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,18 +19,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { getTeams, getGroups, addTeam, updateTeam, deleteTeam } from '@/lib/store'
+import { fetchTeams, fetchGroups, addTeam, updateTeam, deleteTeam } from '@/lib/supabase-api'
 import { Plus, Pencil, Trash2, Search, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { EmptyState } from '@/components/empty-state'
-import type { Team } from '@/lib/types'
+import type { Team, Group } from '@/lib/types'
 
 export default function AdminTeamsPage() {
   const [search, setSearch] = useState('')
-  const [teams, setTeams] = useState(getTeams())
-  const groups = getGroups()
+  const [teams, setTeams] = useState<Team[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    Promise.all([fetchTeams(), fetchGroups()]).then(([t, g]) => {
+      setTeams(t)
+      setGroups(g)
+      setLoading(false)
+    })
+  }, [])
+
   const { toast } = useToast()
 
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -42,9 +53,9 @@ export default function AdminTeamsPage() {
     t.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  const refreshTeams = () => setTeams(getTeams())
+  const refreshTeams = async () => setTeams(await fetchTeams())
 
-  const handleAddTeam = () => {
+  const handleAddTeam = async () => {
     if (!newTeamName.trim() || !newTeamGroup) {
       toast({
         title: 'Error',
@@ -54,35 +65,39 @@ export default function AdminTeamsPage() {
       return
     }
 
-    addTeam({ name: newTeamName.trim(), groupId: newTeamGroup })
-    refreshTeams()
+    setIsSubmitting(true)
+    await addTeam({ name: newTeamName.trim(), groupId: newTeamGroup })
+    await refreshTeams()
     setNewTeamName('')
     setNewTeamGroup('')
     setIsAddOpen(false)
+    setIsSubmitting(false)
     toast({
       title: 'Team added',
       description: `${newTeamName} has been added to Group ${newTeamGroup}.`,
     })
   }
 
-  const handleUpdateTeam = () => {
+  const handleUpdateTeam = async () => {
     if (!editingTeam || !newTeamName.trim() || !newTeamGroup) return
 
-    updateTeam(editingTeam.id, { name: newTeamName.trim(), groupId: newTeamGroup })
-    refreshTeams()
+    setIsSubmitting(true)
+    await updateTeam(editingTeam.id, { name: newTeamName.trim(), groupId: newTeamGroup })
+    await refreshTeams()
     setEditingTeam(null)
     setNewTeamName('')
     setNewTeamGroup('')
+    setIsSubmitting(false)
     toast({
       title: 'Team updated',
       description: `Team has been updated successfully.`,
     })
   }
 
-  const handleDeleteTeam = (team: Team) => {
+  const handleDeleteTeam = async (team: Team) => {
     if (confirm(`Are you sure you want to delete "${team.name}"? This will also delete all their matches.`)) {
-      deleteTeam(team.id)
-      refreshTeams()
+      await deleteTeam(team.id)
+      await refreshTeams()
       toast({
         title: 'Team deleted',
         description: `${team.name} has been removed.`,
@@ -95,6 +110,8 @@ export default function AdminTeamsPage() {
     setNewTeamName(team.name)
     setNewTeamGroup(team.groupId)
   }
+
+  if (loading) return <div>Loading...</div>
 
   return (
     <div className="space-y-6">
@@ -143,7 +160,7 @@ export default function AdminTeamsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleAddTeam} className="w-full">
+              <Button onClick={handleAddTeam} className="w-full" disabled={isSubmitting}>
                 Add Team
               </Button>
             </div>
@@ -240,7 +257,7 @@ export default function AdminTeamsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleUpdateTeam} className="w-full">
+            <Button onClick={handleUpdateTeam} className="w-full" disabled={isSubmitting}>
               Save Changes
             </Button>
           </div>

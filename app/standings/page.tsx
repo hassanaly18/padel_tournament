@@ -1,17 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { getGroups, getStandingsByGroup } from '@/lib/store'
+import { fetchTeams, fetchGroups, fetchMatches, calculateStandings } from '@/lib/supabase-api'
+import type { Team, Group, Match } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 export default function StandingsPage() {
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
-  const groups = getGroups()
+  const [groups, setGroups] = useState<Group[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [matches, setMatches] = useState<Match[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([fetchGroups(), fetchTeams(), fetchMatches()]).then(([g, t, m]) => {
+      setGroups(g)
+      setTeams(t)
+      setMatches(m)
+      setLoading(false)
+    })
+  }, [])
 
   const displayGroups = selectedGroup === 'all' ? groups : groups.filter((g) => g.id === selectedGroup)
+
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,7 +61,8 @@ export default function StandingsPage() {
         {/* Standings Tables */}
         <div className="space-y-6">
           {displayGroups.map((group) => {
-            const standings = getStandingsByGroup(group.id)
+            const groupTeams = teams.filter(t => t.groupId === group.id)
+            const standings = calculateStandings(groupTeams, matches)
 
             return (
               <Card key={group.id}>

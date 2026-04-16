@@ -1,13 +1,27 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getTeams, getGroups, getMatches } from '@/lib/store'
+import { useState, useEffect } from 'react'
+import { fetchTeams, fetchGroups, fetchMatches } from '@/lib/supabase-api'
+import type { Team, Group, Match } from '@/lib/types'
 import { Users, Calendar, Trophy, Zap } from 'lucide-react'
 
 export default function AdminDashboard() {
-  const teams = getTeams()
-  const groups = getGroups()
-  const matches = getMatches()
+  const [teams, setTeams] = useState<Team[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
+  const [matches, setMatches] = useState<Match[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([fetchTeams(), fetchGroups(), fetchMatches()]).then(([t, g, m]) => {
+      setTeams(t)
+      setGroups(g)
+      setMatches(m)
+      setLoading(false)
+    })
+  }, [])
+
+  if (loading) return <div>Loading...</div>
 
   const liveMatches = matches.filter((m) => m.status === 'live')
   const upcomingMatches = matches.filter((m) => m.status === 'upcoming')

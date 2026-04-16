@@ -17,6 +17,23 @@ export function MatchCard({ match, team1, team2 }: MatchCardProps) {
   const team1Wins = isCompleted && match.score1 !== null && match.score2 !== null && match.score1 > match.score2
   const team2Wins = isCompleted && match.score1 !== null && match.score2 !== null && match.score2 > match.score1
 
+  const isKnockout = team1.groupId === 'K' || team2.groupId === 'K'
+
+  const parseKnockoutParams = (name: string) => {
+    const m = name.match(/^\[(.*?)\]\s*(.*)$/)
+    if (m) {
+        let prefixLabel = m[1]
+        if (prefixLabel.startsWith('A') || prefixLabel.startsWith('B') || prefixLabel.startsWith('C') || prefixLabel.startsWith('D')) {
+            prefixLabel = `QF - ${prefixLabel}`
+        }
+        return { prefix: prefixLabel, cleanName: m[2] }
+    }
+    return { prefix: null, cleanName: name }
+  }
+
+  const t1Info = parseKnockoutParams(team1.name)
+  const t2Info = parseKnockoutParams(team2.name)
+
   return (
     <Card
       className={cn(
@@ -72,7 +89,12 @@ export function MatchCard({ match, team1, team2 }: MatchCardProps) {
                   team2Wins && 'text-muted-foreground'
                 )}
               >
-                {team1.name}
+                {t1Info.cleanName}
+                {t1Info.prefix && (
+                  <Badge variant="outline" className="ml-2 text-[10px] h-5 opacity-70">
+                    {t1Info.prefix}
+                  </Badge>
+                )}
               </span>
             </div>
             <span
@@ -104,7 +126,12 @@ export function MatchCard({ match, team1, team2 }: MatchCardProps) {
                   team1Wins && 'text-muted-foreground'
                 )}
               >
-                {team2.name}
+                {t2Info.cleanName}
+                {t2Info.prefix && (
+                  <Badge variant="outline" className="ml-2 text-[10px] h-5 opacity-70">
+                    {t2Info.prefix}
+                  </Badge>
+                )}
               </span>
             </div>
             <span
@@ -120,9 +147,17 @@ export function MatchCard({ match, team1, team2 }: MatchCardProps) {
           </div>
         </div>
 
-        <div className="mt-3 text-xs text-muted-foreground">
-          Group {team1.groupId}
-        </div>
+        {isKnockout ? (
+          <div className="mt-3">
+             <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 border-amber-500/20">
+               Knockout Stage
+             </Badge>
+          </div>
+        ) : (
+          <div className="mt-3 text-xs text-muted-foreground">
+            Group {team1.groupId}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

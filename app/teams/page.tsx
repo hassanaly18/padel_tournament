@@ -6,7 +6,9 @@ import { EmptyState } from '@/components/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { getTeams, getGroups } from '@/lib/store'
+import { fetchTeams, fetchGroups } from '@/lib/supabase-api'
+import type { Team, Group } from '@/lib/types'
+import { useEffect } from 'react'
 import { Users, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,8 +16,17 @@ export default function TeamsPage() {
   const [search, setSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState<string>('all')
 
-  const teams = getTeams()
-  const groups = getGroups()
+  const [teams, setTeams] = useState<Team[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([fetchTeams(), fetchGroups()]).then(([t, g]) => {
+      setTeams(t)
+      setGroups(g)
+      setLoading(false)
+    })
+  }, [])
 
   // Filter teams
   let filteredTeams = teams
@@ -35,6 +46,8 @@ export default function TeamsPage() {
     group,
     teams: filteredTeams.filter((t) => t.groupId === group.id),
   }))
+
+  if (loading) return <div>Loading...</div>
 
   return (
     <div className="min-h-screen bg-background">
