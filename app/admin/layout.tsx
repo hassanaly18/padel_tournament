@@ -62,7 +62,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
               Login
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-              Default password: admin123
+              Default password: easy hoja!
             </p>
           </form>
         </CardContent>
